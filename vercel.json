@@ -6,12 +6,5 @@
       "source": "/admin",
       "destination": "/lostart-admin/index.html"
     }
-  ],
-  "redirects": [
-    {
-      "source": "/lostart-admin",
-      "destination": "/lostart-admin/index.html",
-      "permanent": false
-    }
   ]
 }
