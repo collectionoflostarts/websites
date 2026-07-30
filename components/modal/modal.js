@@ -1,0 +1,533 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // 2. DOM ELEMENTS
+    const modal = document.getElementById('product-modal');
+    const modalCloseBtn = document.getElementById('product-modal-close');
+    const headerEnquiryBtn = document.querySelector('.btn-enquiry');
+    
+    // View containers
+    const detailsView = document.getElementById('modal-details-view');
+    const formView = document.getElementById('modal-form-view');
+    const whatsappView = document.getElementById('modal-whatsapp-view');
+    
+    // View Switch buttons
+    const toEnquiryBtn = document.getElementById('modal-to-enquiry-btn');
+    const whatsappBtn = document.getElementById('modal-whatsapp-btn');
+    const backBtn = document.getElementById('modal-back-btn');
+    const waBackBtn = document.getElementById('modal-wa-back-btn');
+    
+    // Details layout nodes
+    const sliderWrapper = document.getElementById('modal-slider-wrapper');
+    const prevArrow = document.getElementById('modal-prev-arrow');
+    const nextArrow = document.getElementById('modal-next-arrow');
+    const sliderDots = document.getElementById('modal-slider-dots');
+    
+    const modalMaterial = document.getElementById('modal-product-material');
+    const modalTitle = document.getElementById('modal-product-title');
+    const modalDesc = document.getElementById('modal-product-desc');
+    const modalSize = document.getElementById('modal-product-size');
+    const modalPrice = document.getElementById('modal-product-price');
+    const modalQty = document.getElementById('modal-product-qty');
+    
+    // Form elements (Email)
+    const modalForm = document.getElementById('modal-enquiry-form');
+    const modalItemInput = document.getElementById('modal-item');
+    const modalFormMessage = document.getElementById('modal-form-message');
+
+    // Form elements (WhatsApp)
+    const waForm = document.getElementById('modal-whatsapp-form');
+    const waItemInput = document.getElementById('wa-item');
+    const waFormMessage = document.getElementById('wa-form-message');
+    
+    // Inline Page Contact Form
+    const inlineForm = document.getElementById('enquiry-form');
+    const inlineFormMessage = document.getElementById('form-message');
+
+    // Slider State Variables
+    let currentSlideIndex = 0;
+    let currentImagesList = [];
+    let currentProduct = null;
+    let activeSettings = null;
+
+    // Prefetch settings on load
+    const prefetchSettings = async () => {
+        try {
+            activeSettings = await window.ProductCatalog.getSettings();
+        } catch (err) {
+            console.warn('[Modal] Failed to prefetch settings:', err);
+        }
+    };
+    prefetchSettings();
+
+    // 3. UTILITY FUNCTIONS
+
+    const getBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    const updateSliderPosition = () => {
+        if (sliderWrapper) {
+            sliderWrapper.style.transform = `translateX(-${currentSlideIndex * 100}%)`;
+        }
+        
+        // Highlight active dot
+        const dots = sliderDots.querySelectorAll('.slider-dot');
+        dots.forEach((dot, idx) => {
+            if (idx === currentSlideIndex) {
+                dot.classList.add('active');
+            } else {
+                dot.classList.remove('active');
+            }
+        });
+    };
+
+    // (Local logEnquiryRequest helper removed. Powered by window.ProductCatalog.addEnquiry)
+
+    const openModalInDetailsView = async (productName) => {
+        const catalog = await window.ProductCatalog.getAll();
+        const data = catalog.find(item => item.name === productName);
+        if (!data) return;
+        
+        currentProduct = data;
+        
+        // Populate modal text details
+        modalMaterial.textContent = data.material.toUpperCase();
+        modalTitle.textContent = productName;
+        modalDesc.textContent = data.desc || '';
+        modalSize.textContent = data.size || '-';
+        modalPrice.textContent = data.price || '-';
+        modalQty.textContent = data.quantity || '-';
+        
+        // Setup form subjects
+        modalItemInput.value = productName;
+        waItemInput.value = productName;
+        
+        // Get images array or fallback
+        currentImagesList = data.images || (data.img ? [data.img] : []);
+        currentSlideIndex = 0;
+        
+        // Populate slide images dynamically
+        sliderWrapper.innerHTML = '';
+        currentImagesList.forEach((src, idx) => {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = `${productName} Photo ${idx + 1}`;
+            img.className = 'slider-slide';
+            sliderWrapper.appendChild(img);
+        });
+
+        // Populate pagination dots and toggle control button displays
+        sliderDots.innerHTML = '';
+        if (currentImagesList.length > 1) {
+            currentImagesList.forEach((_, idx) => {
+                const dot = document.createElement('button');
+                dot.type = 'button';
+                dot.className = 'slider-dot' + (idx === 0 ? ' active' : '');
+                dot.setAttribute('aria-label', `Go to slide ${idx + 1}`);
+                dot.addEventListener('click', () => {
+                    currentSlideIndex = idx;
+                    updateSliderPosition();
+                });
+                sliderDots.appendChild(dot);
+            });
+            
+            // Show slideshow buttons
+            prevArrow.style.display = 'flex';
+            nextArrow.style.display = 'flex';
+            sliderDots.style.display = 'flex';
+        } else {
+            // Hide slideshow buttons if single image
+            prevArrow.style.display = 'none';
+            nextArrow.style.display = 'none';
+            sliderDots.style.display = 'none';
+        }
+
+        // Reset positions
+        sliderWrapper.style.transform = 'translateX(0)';
+        
+        // Reset active views
+        formView.classList.remove('active');
+        whatsappView.classList.remove('active');
+        detailsView.classList.add('active');
+        
+        // Open overlay
+        modal.classList.add('open');
+        document.body.classList.add('no-scroll');
+    };
+    
+    // Expose to window
+    window.openProductDetailsMock = openModalInDetailsView; // Keep alias
+    window.openProductDetailsModal = openModalInDetailsView;
+
+    const openModalInEnquiryView = (subjectName) => {
+        modalItemInput.value = subjectName || 'General Enquiry';
+        
+        // Show form, hide other views
+        detailsView.classList.remove('active');
+        whatsappView.classList.remove('active');
+        formView.classList.add('active');
+        
+        // Open overlay
+        modal.classList.add('open');
+        document.body.classList.add('no-scroll');
+    };
+
+    const closeModal = () => {
+        modal.classList.remove('open');
+        document.body.classList.remove('no-scroll');
+        if (modalForm) modalForm.reset();
+        if (waForm) waForm.reset();
+        
+        if (modalFormMessage) {
+            modalFormMessage.textContent = '';
+            modalFormMessage.className = 'form-message';
+        }
+        if (waFormMessage) {
+            waFormMessage.textContent = '';
+            waFormMessage.className = 'form-message';
+        }
+    };
+
+    const sendEmail = async (name, contact, subject, message, file = null) => {
+        let receiver = "sonidiv1993@gmail.com";
+        let web3formsKey = "";
+        
+        if (typeof WEB3FORMS_KEY !== 'undefined' && WEB3FORMS_KEY) {
+            web3formsKey = WEB3FORMS_KEY;
+        }
+        
+        try {
+            const settings = await window.ProductCatalog.getSettings();
+            if (settings) {
+                if (settings.email) receiver = settings.email;
+                if (settings.web3forms_key) web3formsKey = settings.web3forms_key;
+            }
+        } catch (err) {
+            console.warn('[Modal] Failed to query receiver/web3forms settings:', err);
+        }
+
+        if (web3formsKey) {
+            try {
+                const formData = new FormData();
+                formData.append('access_key', web3formsKey);
+                formData.append('name', name);
+                formData.append('email', contact);
+                formData.append('subject', `Enquiry: ${subject}`);
+                formData.append('message', `Product/Subject: ${subject}\nContact details: ${contact}\n\nEnquiry details:\n${message}`);
+                
+                if (file) {
+                    formData.append('attachment', file);
+                }
+
+                const res = await fetch('https://api.web3forms.com/submit', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (res.ok) {
+                    console.log('[Modal] Enquiry form sent via Web3Forms successfully.');
+                    return true;
+                } else {
+                    console.warn('[Modal] Web3Forms API returned non-ok status, falling back to mailto.');
+                }
+            } catch (err) {
+                console.error('[Modal] Web3Forms request failed:', err);
+            }
+        }
+
+        // Fallback to mailto client
+        const emailSubject = `Enquiry: ${subject}`;
+        let emailBody = `Name: ${name}\nContact: ${contact}\n\nEnquiry details:\n${message}`;
+        if (file) {
+            emailBody += `\n\n[Photo Attachment: Yes (View in Admin Dashboard)]`;
+        }
+        emailBody += `\n\n---\nSent from Website Contact System.`;
+        
+        const mailtoUrl = `mailto:${receiver}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
+        window.location.href = mailtoUrl;
+        return false;
+    };
+
+    const sendWhatsAppMessage = (productName, clientNumber) => {
+        let adminWhatsAppNumber = "918946866094"; // fallback owner number
+        if (activeSettings && activeSettings.phone) {
+            // Strip non-digits and format for wa.me
+            let cleaned = activeSettings.phone.replace(/\D/g, '');
+            if (cleaned.startsWith('00')) {
+                cleaned = cleaned.substring(2);
+            }
+            if (cleaned.length === 10) {
+                cleaned = '91' + cleaned;
+            }
+            if (cleaned.length === 11 && cleaned.startsWith('0')) {
+                cleaned = '91' + cleaned.substring(1);
+            }
+            adminWhatsAppNumber = cleaned;
+        }
+        
+        let message = `Hello, I am interested in inquiring about this product from Collection of Lost Arts:\n\n`;
+        message += `*Product Name:* ${productName}\n`;
+        
+        if (currentProduct) {
+            if (currentProduct.size) message += `*Size:* ${currentProduct.size}\n`;
+            if (currentProduct.price) message += `*Price:* ${currentProduct.price}\n`;
+            if (currentProduct.quantity) message += `*Availability:* ${currentProduct.quantity}\n`;
+            const description = currentProduct.desc || currentProduct.desc_text;
+            if (description) message += `*Description:* ${description}\n`;
+            
+            // Format interactive product page link
+            const absoluteWebLink = `${window.location.origin}${window.location.pathname}?product=${encodeURIComponent(productName)}`;
+            message += `*Product & Photo Link:* ${absoluteWebLink}\n`;
+
+            // Format direct photo file link if not a local base64 upload
+            if (currentProduct.img && !currentProduct.img.startsWith('data:')) {
+                let absolutePhotoUrl = currentProduct.img;
+                if (!currentProduct.img.startsWith('http://') && !currentProduct.img.startsWith('https://')) {
+                    absolutePhotoUrl = `${window.location.origin}/${currentProduct.img.replace(/^\//, '')}`;
+                }
+                message += `*Photo Image File:* ${absolutePhotoUrl}\n`;
+            }
+        }
+        
+        message += `\nMy contact number is: ${clientNumber}\nPlease get back to me. Thank you!`;
+        
+        const waUrl = `https://api.whatsapp.com/send?phone=${adminWhatsAppNumber}&text=${encodeURIComponent(message)}`;
+        window.open(waUrl, '_blank');
+    };
+
+    // 4. EVENT LISTENERS
+    
+    // Header Enquiry button click
+    if (headerEnquiryBtn) {
+        headerEnquiryBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            openModalInEnquiryView('General Enquiry');
+        });
+    }
+
+    // Modal view switcher clicks
+    if (toEnquiryBtn) {
+        toEnquiryBtn.addEventListener('click', () => {
+            detailsView.classList.remove('active');
+            formView.classList.add('active');
+        });
+    }
+    if (whatsappBtn) {
+        whatsappBtn.addEventListener('click', () => {
+            detailsView.classList.remove('active');
+            whatsappView.classList.add('active');
+        });
+    }
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            formView.classList.remove('active');
+            detailsView.classList.add('active');
+        });
+    }
+    if (waBackBtn) {
+        waBackBtn.addEventListener('click', () => {
+            whatsappView.classList.remove('active');
+            detailsView.classList.add('active');
+        });
+    }
+
+    // Modal Details slide controls bindings
+    if (prevArrow) {
+        prevArrow.addEventListener('click', () => {
+            if (currentImagesList.length <= 1) return;
+            currentSlideIndex = (currentSlideIndex - 1 + currentImagesList.length) % currentImagesList.length;
+            updateSliderPosition();
+        });
+    }
+    if (nextArrow) {
+        nextArrow.addEventListener('click', () => {
+            if (currentImagesList.length <= 1) return;
+            currentSlideIndex = (currentSlideIndex + 1) % currentImagesList.length;
+            updateSliderPosition();
+        });
+    }
+
+    // Modal closing bindings
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', closeModal);
+    }
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+    }
+
+    // Handle modal email form submission
+    if (modalForm) {
+        modalForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const item = document.getElementById('modal-item').value;
+            const name = document.getElementById('modal-name').value;
+            const email = document.getElementById('modal-email').value;
+            const message = document.getElementById('modal-message').value;
+            const fileInput = document.getElementById('modal-photo');
+
+            if (!name || !email || !message) {
+                showModalFeedback('Please fill out all fields.', 'error');
+                return;
+            }
+
+            let base64Photo = null;
+            if (fileInput && fileInput.files.length > 0) {
+                try {
+                    base64Photo = await getBase64(fileInput.files[0]);
+                } catch (err) {
+                    console.error('[Modal] Failed to read photo file:', err);
+                }
+            }
+
+            const submitBtn = modalForm.querySelector('.modal-submit-btn');
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+
+            setTimeout(async () => {
+                const loggedItem = base64Photo ? `${item} ||photo:${base64Photo}` : item;
+                await window.ProductCatalog.addEnquiry(loggedItem, email, 'Email');
+                
+                const attachedFile = fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
+                const sentViaAPI = await sendEmail(name, email, item, message, attachedFile);
+                
+                if (sentViaAPI) {
+                    showModalFeedback(`Enquiry sent directly! Thank you, ${name}!`, 'success');
+                } else {
+                    showModalFeedback(`Opening mail client... Thank you, ${name}!`, 'success');
+                }
+                
+                setTimeout(() => {
+                    closeModal();
+                    submitBtn.textContent = 'Submit Enquiry';
+                    submitBtn.disabled = false;
+                }, 2000);
+            }, 1000);
+        });
+    }
+
+    // Handle modal WhatsApp form submission
+    if (waForm) {
+        waForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const item = document.getElementById('wa-item').value;
+            const clientNumber = document.getElementById('wa-client-number').value;
+
+            if (!clientNumber) {
+                showWaFeedback('Please enter your phone number.', 'error');
+                return;
+            }
+
+            // Open WhatsApp immediately and synchronously to prevent browser popup blockers
+            sendWhatsAppMessage(item, clientNumber);
+
+            const submitBtn = waForm.querySelector('.modal-whatsapp-btn');
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.textContent = 'Connecting WhatsApp...';
+            submitBtn.disabled = true;
+
+            setTimeout(async () => {
+                // Log request in cloud DB / Local fallback asynchronously in background
+                try {
+                    await window.ProductCatalog.addEnquiry(item, clientNumber, 'WhatsApp');
+                } catch (err) {
+                    console.error('[Modal] Failed to log enquiry:', err);
+                }
+                
+                showWaFeedback(`Opening WhatsApp chat... Thank you!`, 'success');
+                
+                setTimeout(() => {
+                    closeModal();
+                    submitBtn.innerHTML = originalBtnHtml;
+                    submitBtn.disabled = false;
+                }, 2000);
+            }, 1000);
+        });
+    }
+
+    // Handle inline page contact form submission
+    if (inlineForm) {
+        inlineForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const message = document.getElementById('message').value;
+            const fileInput = document.getElementById('inline-photo');
+
+            if (!name || !email || !message) {
+                showInlineFeedback('Please fill out all fields.', 'error');
+                return;
+            }
+
+            let base64Photo = null;
+            if (fileInput && fileInput.files.length > 0) {
+                try {
+                    base64Photo = await getBase64(fileInput.files[0]);
+                } catch (err) {
+                    console.error('[Homepage] Failed to read photo file:', err);
+                }
+            }
+
+            const submitBtn = inlineForm.querySelector('.btn-submit');
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+
+            setTimeout(async () => {
+                const loggedItem = base64Photo ? `General Workshop Enquiry ||photo:${base64Photo}` : 'General Workshop Enquiry';
+                await window.ProductCatalog.addEnquiry(loggedItem, email, 'Email');
+                
+                const attachedFile = fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
+                const sentViaAPI = await sendEmail(name, email, 'General Workshop Enquiry', message, attachedFile);
+                
+                if (sentViaAPI) {
+                    showInlineFeedback(`Thank you, ${name}! Your enquiry has been sent directly.`, 'success');
+                } else {
+                    showInlineFeedback(`Thank you, ${name}! Mail client is opening to send your enquiry.`, 'success');
+                }
+                inlineForm.reset();
+                submitBtn.textContent = 'Send Enquiry';
+                submitBtn.disabled = false;
+            }, 1000);
+        });
+    }
+
+    function showModalFeedback(text, type) {
+        if (modalFormMessage) {
+            modalFormMessage.textContent = text;
+            modalFormMessage.className = 'form-message';
+            modalFormMessage.classList.add(type);
+        }
+    }
+
+    function showWaFeedback(text, type) {
+        if (waFormMessage) {
+            waFormMessage.textContent = text;
+            waFormMessage.className = 'form-message';
+            waFormMessage.classList.add(type);
+        }
+    }
+
+    function showInlineFeedback(text, type) {
+        if (inlineFormMessage) {
+            inlineFormMessage.textContent = text;
+            inlineFormMessage.className = 'form-message';
+            inlineFormMessage.classList.add(type);
+            if (type === 'success') {
+                setTimeout(() => {
+                    inlineFormMessage.textContent = '';
+                    inlineFormMessage.className = 'form-message';
+                }, 6000);
+            }
+        }
+    }
+});

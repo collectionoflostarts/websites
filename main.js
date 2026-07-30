@@ -1,0 +1,230 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. DOM Elements
+    const header = document.querySelector('.site-header');
+    const menuToggle = document.querySelector('.menu-toggle');
+    const mainNav = document.querySelector('.main-nav');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const sections = document.querySelectorAll('section[id]');
+    const enquiryForm = document.getElementById('enquiry-form');
+    const formMessage = document.getElementById('form-message');
+
+    // 2. Header Shrink & Translucent Effect on Scroll
+    const handleScroll = () => {
+        if (window.scrollY > 40) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
+        }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check scroll position on mount
+
+    // 3. Mobile Menu Toggle
+    const toggleMenu = () => {
+        menuToggle.classList.toggle('open');
+        mainNav.classList.toggle('open');
+        document.body.classList.toggle('no-scroll');
+    };
+
+    menuToggle.addEventListener('click', toggleMenu);
+
+    // Close menu when a link is clicked (Mobile view)
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            if (mainNav.classList.contains('open')) {
+                toggleMenu();
+            }
+        });
+    });
+
+    // 4. Scroll Spy - Active Nav Link Highlighting
+    const scrollSpy = () => {
+        const scrollPosition = window.scrollY + 120; // offset for the sticky header
+
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.offsetHeight;
+            const sectionId = section.getAttribute('id');
+
+            if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${sectionId}`) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        });
+    };
+
+    window.addEventListener('scroll', scrollSpy);
+    scrollSpy(); // Run initially to highlight active link
+
+    // 5. Dynamic Gallery Rendering & Filtering
+    const renderGalleryGrid = async () => {
+        const grid = document.getElementById('product-grid');
+        if (!grid) return;
+
+        const catalog = await window.ProductCatalog.getAll();
+        grid.innerHTML = '';
+
+        // Only show items flagged for main screen.
+        // If none are flagged, fallback to first 8 items.
+        let homepageItems = catalog.filter(item => item.show_on_homepage === true);
+        if (homepageItems.length === 0) {
+            homepageItems = catalog.slice(0, 8);
+        }
+        homepageItems.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.setAttribute('data-material', item.material);
+            card.innerHTML = `
+                <div class="product-img-wrapper arch-frame" style="cursor: pointer;">
+                    <img src="${item.img}" alt="${item.name}" class="product-img">
+                </div>
+                <h4 class="product-title" style="cursor: pointer;">${item.name}</h4>
+            `;
+
+            // Bind click handler directly to open details modal
+            const handleCardClick = () => {
+                if (window.openProductDetailsModal) {
+                    window.openProductDetailsModal(item.name);
+                }
+            };
+
+            const imgWrapper = card.querySelector('.product-img-wrapper');
+            const titleEl = card.querySelector('.product-title');
+
+            if (imgWrapper) imgWrapper.addEventListener('click', handleCardClick);
+            if (titleEl) titleEl.addEventListener('click', handleCardClick);
+
+            grid.appendChild(card);
+        });
+    };
+
+    const filterGallery = (category) => {
+        // Update active class on filter buttons dynamically
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        filterButtons.forEach(btn => {
+            if (btn.getAttribute('data-filter') === category) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Query product cards dynamically so new elements are selected
+        const productCards = document.querySelectorAll('.product-card');
+        productCards.forEach(card => {
+            const productMaterial = card.getAttribute('data-material');
+            if (category === 'all' || productMaterial === category) {
+                card.style.display = 'flex';
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1)';
+                }, 50);
+            } else {
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    card.style.display = 'none';
+                }, 400);
+            }
+        });
+    };
+
+    const renderCategoriesAndFilters = async () => {
+        const categoriesGrid = document.getElementById('categories-grid');
+        if (!categoriesGrid) return;
+
+        const categories = await window.ProductCatalog.getCategories();
+
+        // 1. Render Categories Showcase
+        categoriesGrid.innerHTML = '';
+        const visibleCategories = categories.filter(cat => cat.on_display !== false);
+        visibleCategories.forEach(cat => {
+            const card = document.createElement('div');
+            card.className = 'category-card';
+            card.setAttribute('data-category', cat.id);
+            card.innerHTML = `
+                <div class="category-img-wrapper arch-frame-small">
+                    <img src="${cat.img}" alt="${cat.name} Category" class="category-img">
+                </div>
+                <h3 class="category-title">${cat.name.toUpperCase()}</h3>
+            `;
+            
+            card.addEventListener('click', () => {
+                window.location.href = `gallery.html?filter=${cat.id}`;
+            });
+            categoriesGrid.appendChild(card);
+        });
+    };
+
+    // Initial render calls
+    const initHomepage = async () => {
+        await renderCategoriesAndFilters();
+        await renderGalleryGrid();
+
+        // Auto-open product details modal if query parameter ?product=xyz is present
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const productParam = params.get('product');
+            if (productParam && window.openProductDetailsModal) {
+                setTimeout(() => {
+                    window.openProductDetailsModal(productParam);
+                }, 300);
+            }
+        } catch (e) {
+            console.warn('[Homepage] Query param open details failed:', e);
+        }
+
+        // Update floating WhatsApp button dynamically with settings phone number
+        try {
+            const settings = await window.ProductCatalog.getSettings();
+            if (settings && settings.phone) {
+                let cleaned = settings.phone.replace(/\D/g, '');
+                if (cleaned.startsWith('00')) {
+                    cleaned = cleaned.substring(2);
+                }
+                if (cleaned.length === 10) {
+                    cleaned = '91' + cleaned;
+                }
+                if (cleaned.length === 11 && cleaned.startsWith('0')) {
+                    cleaned = '91' + cleaned.substring(1);
+                }
+                const floatingWaBtn = document.querySelector('.floating-whatsapp-btn');
+                if (floatingWaBtn) {
+                    floatingWaBtn.href = `https://api.whatsapp.com/send?phone=${cleaned}`;
+                }
+            }
+        } catch (err) {
+            console.warn('[Homepage] Failed to update floating WhatsApp button:', err);
+        }
+    };
+    initHomepage();
+
+    // 6. Hero Background Slider
+    const initHeroSlider = () => {
+        const slides = document.querySelectorAll('.hero-slide');
+        if (slides.length <= 1) return;
+
+        let currentSlide = 0;
+        const slideInterval = 6000;
+
+        const nextSlide = () => {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slides.length;
+            slides[currentSlide].classList.add('active');
+        };
+
+        setInterval(nextSlide, slideInterval);
+    };
+    initHeroSlider();
+    
+    // Expose render function so admin dashboard updates trigger homepage updates
+    window.refreshGalleryGrid = async () => {
+        await renderCategoriesAndFilters();
+        await renderGalleryGrid();
+    };
+});
