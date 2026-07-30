@@ -3,20 +3,15 @@
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/lostart-admin",
-      "destination": "/lostart-admin/index.html"
-    },
-    {
-      "source": "/lostart-admin/",
-      "destination": "/lostart-admin/index.html"
-    },
-    {
       "source": "/admin",
       "destination": "/lostart-admin/index.html"
-    },
+    }
+  ],
+  "redirects": [
     {
-      "source": "/admin/",
-      "destination": "/lostart-admin/index.html"
+      "source": "/lostart-admin",
+      "destination": "/lostart-admin/index.html",
+      "permanent": false
     }
   ]
 }
