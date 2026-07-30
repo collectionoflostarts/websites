@@ -11,7 +11,7 @@
 // NOTE: Keep these fields completely blank to fall back safely to browser LocalStorage.
 
 const SUPABASE_URL = "https://ztjaorwkrlhylchgzllq.supabase.co";
-const SUPABASE_KEY = "sb_publishable_cRg40jpaJ1_BTnJKUajITg_jWjcMpNk";
+const SUPABASE_KEY = "sb_publishable_FmCNaSHhGxxiEU-1R-F9vw_gwlk8POf";
 
 // Paste your free Web3Forms Access Key here to enable real email OTPs (from https://web3forms.com)
 const WEB3FORMS_KEY = "";
