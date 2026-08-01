@@ -20,6 +20,15 @@
         console.log('[Database] Supabase credentials not detected. Falling back to browser LocalStorage.');
     }
 
+    const defaultCats = [
+        { id: "brass", name: "Brass", img: "image/pexels-eiakash-37013404.jpg" },
+        { id: "stone", name: "Stone", img: "image/pexels-love-hater-373675099-20083403.jpg" },
+        { id: "iron", name: "Iron", img: "image/pexels-stijn-dijkstra-1306815-15534236.jpg" },
+        { id: "terracotta", name: "Terracotta", img: "image/pexels-shuttersangam-33625236.jpg" },
+        { id: "porcelain", name: "Porcelain", img: "image/pexels-love-hater-373675099-20083403.jpg" },
+        { id: "enamel", name: "Enamel", img: "image/pexels-subrata-deb-1282362-32842479.jpg" }
+    ];
+
     const defaultCatalog = [
         {
             id: "p1",
@@ -225,25 +234,7 @@
                         return cachedCatalog;
                     }
                     
-                    // Check if categories are also empty to determine if this is a fresh setup.
-                    // If categories already exist, the user intentionally deleted all products.
-                    try {
-                        const { data: catData } = await supabase
-                            .from('categories')
-                            .select('id')
-                            .limit(1);
-                        if (catData && catData.length > 0) {
-                            cachedCatalog = [];
-                            return cachedCatalog;
-                        }
-                    } catch (catErr) {
-                        console.warn('[Database] Failed to check categories for seeding status:', catErr);
-                    }
-                    
-                    // Seed cloud DB with defaults if completely empty
-                    console.log('[Database] Cloud database empty. Seeding defaults...');
-                    await this.seedCloudCatalog(defaultCatalog);
-                    cachedCatalog = defaultCatalog;
+                    cachedCatalog = [];
                     return cachedCatalog;
                 } catch (err) {
                     console.error('[Database] Supabase query failed, returning LocalStorage fallback:', err);
@@ -393,6 +384,25 @@
             }
         },
 
+        seedCloudCategories: async function(list) {
+            if (!supabase) return;
+            try {
+                const rows = list.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    img: c.img,
+                    on_display: c.on_display !== false
+                }));
+                const { error } = await supabase
+                    .from('categories')
+                    .insert(rows);
+                if (error) throw error;
+                console.log('[Database] Seeded cloud categories.');
+            } catch (err) {
+                console.error('[Database] Cloud categories seeding failed:', err);
+            }
+        },
+
         // --- 2. ENQUIRIES LOGGING METHODS ---
         getEnquiries: async function() {
             if (useCloudDB && supabase) {
@@ -502,15 +512,6 @@
         },
 
         getCategories: async function() {
-            const defaultCats = [
-                { id: "brass", name: "Brass", img: "image/pexels-eiakash-37013404.jpg" },
-                { id: "stone", name: "Stone", img: "image/pexels-love-hater-373675099-20083403.jpg" },
-                { id: "iron", name: "Iron", img: "image/pexels-stijn-dijkstra-1306815-15534236.jpg" },
-                { id: "terracotta", name: "Terracotta", img: "image/pexels-shuttersangam-33625236.jpg" },
-                { id: "porcelain", name: "Porcelain", img: "image/pexels-love-hater-373675099-20083403.jpg" },
-                { id: "enamel", name: "Enamel", img: "image/pexels-subrata-deb-1282362-32842479.jpg" }
-            ];
-
             if (useCloudDB && supabase) {
                 try {
                     const { data, error } = await supabase
@@ -528,11 +529,7 @@
                         });
                     }
 
-                    // Seed cloud DB if table is empty
-                    console.log('[Database] Cloud categories table is empty. Seeding default collections...');
-                    const seededCats = defaultCats.map(c => ({ ...c, on_display: true }));
-                    await supabase.from('categories').insert(seededCats);
-                    return seededCats;
+                    return [];
                 } catch (err) {
                     console.warn('[Database] Supabase categories query failed, using local fallback.', err);
                 }

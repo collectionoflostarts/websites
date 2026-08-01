@@ -284,13 +284,14 @@
                 renderProducts();
             };
 
-            const renderFilters = async () => {
+             const renderFilters = async () => {
                 const categories = await window.ProductCatalog.getCategories();
                 galleryFilters.innerHTML = '';
 
                 // Create "All" button
                 const allBtn = document.createElement('button');
                 allBtn.className = `filter-btn ${activeFilter === 'all' ? 'active' : ''}`;
+                allBtn.setAttribute('data-filter', 'all');
                 allBtn.textContent = 'All';
                 allBtn.addEventListener('click', () => {
                     applyFilter('all');
@@ -301,6 +302,7 @@
                 visibleCategories.forEach(cat => {
                     const btn = document.createElement('button');
                     btn.className = `filter-btn ${activeFilter === cat.id ? 'active' : ''}`;
+                    btn.setAttribute('data-filter', cat.id);
                     btn.textContent = cat.name;
                     btn.addEventListener('click', () => {
                         applyFilter(cat.id);
@@ -312,10 +314,8 @@
             const applyFilter = (filterId) => {
                 activeFilter = filterId;
                 document.querySelectorAll('.filter-btn').forEach(btn => {
-                    const txt = btn.textContent.toLowerCase();
-                    const isAll = filterId === 'all' && txt === 'all';
-                    const isMatch = txt === filterId;
-                    if (isAll || isMatch) {
+                    const targetFilter = btn.getAttribute('data-filter');
+                    if (targetFilter === filterId) {
                         btn.classList.add('active');
                     } else {
                         btn.classList.remove('active');

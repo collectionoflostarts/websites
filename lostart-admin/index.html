@@ -2065,9 +2065,7 @@
                 });
             };
 
-            inventoryCategoryFilter.addEventListener('change', applyInventoryFilter);
-
-            addProductForm.addEventListener('submit', async (e) => {
+            inventoryCategoryFilter.addEventListener('change', applyInventoryFilter);            addProductForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
 
                 const name = document.getElementById('product-name').value.trim();
@@ -2096,6 +2094,11 @@
                     show_on_homepage: showHomepage
                 };
 
+                const submitBtn = btnSubmitProduct || addProductForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = editingProductId ? 'Saving Changes...' : 'Adding Product...';
+
                 try {
                     if (editingProductId) {
                         await window.ProductCatalog.update(editingProductId, newItem);
@@ -2113,9 +2116,11 @@
                 } catch (err) {
                     console.error('[Admin] Product operation failed:', err);
                     alert(`Database Error: ${err.message || JSON.stringify(err)}\n\nIf you are using a cloud database (Supabase), please make sure you have run the migration to add the display status columns:\n\nALTER TABLE products ADD COLUMN show_on_homepage BOOLEAN DEFAULT true;`);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
                 }
             });
-
             // 6. Categories CMS manager
             let categoryBase64Img = '';
 
@@ -2154,7 +2159,7 @@
 
                 const reader = new FileReader();
                 reader.onload = async (event) => {
-                    categoryBase64Img = await compressImage(event.target.result);
+                    categoryBase64Img = await compressImage(event.target.result, 400, 500, 0.6);
                     categoryPreviewContainer.innerHTML = `
                         <div class="preview-thumbnail-wrapper">
                             <img src="${categoryBase64Img}" alt="Category Thumbnail">
@@ -2267,9 +2272,7 @@
                         }
                     });
                 });
-            };
-
-            categoryForm.addEventListener('submit', async (e) => {
+            };            categoryForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const name = categoryNameInput.value.trim();
                 const slug = categoryIdInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -2281,6 +2284,11 @@
                     alert('Please upload a category thumbnail.');
                     return;
                 }
+
+                const submitBtn = categoryForm.querySelector('button[type="submit"]');
+                const originalBtnText = submitBtn.textContent;
+                submitBtn.disabled = true;
+                submitBtn.textContent = editingCategoryId ? 'Saving Changes...' : 'Adding Category...';
 
                 try {
                     if (editingCategoryId) {
@@ -2321,9 +2329,11 @@
                 } catch (err) {
                     console.error('[Admin] Category operation failed:', err);
                     alert(`Database Error: ${err.message || JSON.stringify(err)}\n\nIf you are using a cloud database (Supabase), please make sure you have run the migration to add the display status columns:\n\nALTER TABLE categories ADD COLUMN on_display BOOLEAN DEFAULT true;`);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalBtnText;
                 }
             });
-
             // 7. Security Credentials Settings
             async function loadSettings() {
                 try {

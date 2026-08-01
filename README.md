@@ -100,7 +100,7 @@ create table categories (
 create table products (
   id text primary key,          -- Unique ID (e.g., 'p_1688753235...')
   name text not null,
-  material text not null,       -- Category slug referencing categories.id
+  material text not null references categories(id) on delete cascade, -- Category slug referencing categories.id
   price text not null,
   size text not null,
   quantity text not null,
